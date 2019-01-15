@@ -2,14 +2,15 @@
 'use strict';
 
 import path from 'path';
-
 import chalk from 'chalk';
 import gaze from 'gaze';
 import globby from 'globby';
 import meow from 'meow';
+import sass from 'node-sass';
+import temp from 'temp';
 
 import Converter from './converter';
-import writeFile from './writer';
+import { writeFile, readFile } from './fs';
 
 const cli = meow(
   {
@@ -73,20 +74,33 @@ const main = () => {
   const rootDir = process.cwd();
   const converter = new Converter(rootDir);
 
-  function handleFile(filePath) {
-    const f = path.resolve(filePath);
-    converter
-      .convert(f)
-      .then(content => {
-        const outputFilePath = path.join(f + '.flow');
-        return writeFile(outputFilePath, content);
-      })
-      .then(outputFilePath => {
-        if (!silent) {
-          console.log('Wrote ' + chalk.green(outputFilePath));
+  async function handleFile(scssFilePath) {
+    try {
+      scssFilePath = path.resolve(scssFilePath);
+
+      const scssContents = await readFile(scssFilePath, 'utf8');
+      const cssContents = (await renderSass({
+        data: scssContents,
+      })).css.toString();
+
+      const tempCssFile = temp.path({ suffix: '.css' });
+      await writeFile(tempCssFile, cssContents, 'utf8');
+
+      const flowTypings = await converter.convert(tempCssFile);
+      const flowTypingsFile = path.join(scssFilePath + '.flow');
+      await writeFile(flowTypingsFile, flowTypings, 'utf8');
+
+      if (!silent) {
+        let outputFileRelative = path.relative(process.cwd(), flowTypingsFile);
+        if (!outputFileRelative.startsWith('../')) {
+          outputFileRelative = `./${outputFileRelative}`;
         }
-      })
-      .catch(reason => console.error(chalk.red('[Error] ' + reason)));
+
+        console.info(chalk.green('[Wrote] ' + outputFileRelative));
+      }
+    } catch (reason) {
+      console.error(chalk.red('[Error] ' + reason));
+    }
   }
 
   if (!watch) {
@@ -109,5 +123,17 @@ const main = () => {
     });
   }
 };
+
+function renderSass(opts) {
+  return new Promise((resolve, reject) => {
+    return sass.render(opts, (err, val) => {
+      if (err) {
+        return void reject(err);
+      }
+
+      resolve(val);
+    });
+  });
+}
 
 main();
