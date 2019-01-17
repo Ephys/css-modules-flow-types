@@ -1,6 +1,6 @@
 {
   "name": "@ephys/css-modules-flow-types-cli",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "description": "CLI for creating flow definitions from CSS Modules files",
   "author": "skovhus",
   "license": "MIT",
