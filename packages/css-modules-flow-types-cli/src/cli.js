@@ -78,9 +78,8 @@ const main = () => {
     try {
       scssFilePath = path.resolve(scssFilePath);
 
-      const scssContents = await readFile(scssFilePath, 'utf8');
       const cssContents = (await renderSass({
-        data: scssContents,
+        file: scssFilePath,
       })).css.toString();
 
       const tempCssFile = temp.path({ suffix: '.css' });
